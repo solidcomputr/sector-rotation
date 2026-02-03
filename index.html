@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sector Rotation (Light/Dark)</title>
+    <title>Sector Rotation (Live)</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
-        /* --- CSS VARIABLES FOR THEMING --- */
+        /* --- CSS VARIABLES --- */
         :root {
-            /* Default Light Theme */
             --bg-color: #f4f4f9;
             --card-bg: #ffffff;
             --text-primary: #333333;
@@ -20,7 +19,6 @@
         }
 
         [data-theme="dark"] {
-            /* Dark Theme Overrides */
             --bg-color: #000000;
             --card-bg: #121212;
             --text-primary: #e0e0e0;
@@ -42,30 +40,19 @@
 
         h1 { margin-bottom: 20px; font-weight: 300; text-transform: uppercase; letter-spacing: 1px; }
 
-        /* HEADER & TOGGLE */
         .header-row {
             display: flex; justify-content: space-between; align-items: center;
             max-width: 1100px; margin: 0 auto 20px auto;
         }
         
-        /* DARK MODE TOGGLE SWITCH */
         .theme-switch-wrapper { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 0.9em; }
-        .theme-switch {
-            position: relative; display: inline-block; width: 50px; height: 26px;
-        }
+        .theme-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
         .theme-switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #ccc; transition: .4s; border-radius: 34px;
-        }
-        .slider:before {
-            position: absolute; content: ""; height: 18px; width: 18px;
-            left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%;
-        }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--accent-blue); }
         input:checked + .slider:before { transform: translateX(24px); }
 
-        /* CARDS */
         #controls, #chart-card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -79,35 +66,26 @@
 
         #chart-container { width: 100%; height: 800px; }
 
-        /* BUTTONS */
         #btn-row { margin-bottom: 20px; display: flex; justify-content: center; gap: 10px; }
-        button {
-            padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
-            font-weight: 600; font-size: 0.9em; transition: 0.2s;
-        }
+        button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: 0.2s; }
         button.select-btn { background: var(--accent-blue); color: white; }
         button.select-btn:hover { opacity: 0.9; }
         button.clear-btn { background: #e0e0e0; color: #333; }
         button.clear-btn:hover { background: #ccc; }
 
-        /* CHECKBOXES */
         #checkbox-container {
             display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
             margin-bottom: 25px; padding-bottom: 20px;
             border-bottom: 1px solid var(--border-color);
         }
         .sector-label {
-            font-size: 0.85em; cursor: pointer;
-            display: flex; align-items: center; gap: 8px;
+            font-size: 0.85em; cursor: pointer; display: flex; align-items: center; gap: 8px;
             padding: 8px 12px; border-radius: 4px;
-            background: rgba(128, 128, 128, 0.1); 
-            border: 1px solid transparent;
-            color: var(--text-primary);
+            background: rgba(128, 128, 128, 0.1); border: 1px solid transparent; color: var(--text-primary);
         }
         .sector-label:hover { background: rgba(128, 128, 128, 0.2); }
         .ticker-span { font-weight: 700; }
 
-        /* SLIDER & TEXT */
         input[type=range] { width: 100%; cursor: pointer; margin-top: 15px; accent-color: var(--accent-blue); }
         #date-display { font-size: 1.6em; font-weight: 600; display: block; margin-bottom: 5px; color: var(--text-primary); }
         #sub-text { color: var(--text-secondary); font-size: 0.9em; display: block; margin-bottom: 10px;}
@@ -151,11 +129,11 @@
     </div>
 
     <script>
-        const PROXY = "https://corsproxy.io/?";
+        // --- CHANGED: A more stable proxy for GitHub Pages ---
+        const PROXY = "https://api.codetabs.com/v1/proxy?quest=";
         const delay = ms => new Promise(res => setTimeout(res, ms));
         const CUTOFF_TIMESTAMP = new Date("2025-12-23").getTime() / 1000;
 
-        // SECTOR DATA
         const SECTOR_MAP = [
             { tick: 'XLK', name: 'Technology', color: '#1f77b4' },
             { tick: 'XLF', name: 'Financials', color: '#ff7f0e' },
@@ -173,25 +151,15 @@
         let FINAL_DATA = {};
         let DATE_LABELS = [];
         let VISIBLE_SECTORS = new Set(SECTOR_MAP.map(s => s.tick)); 
-        let IS_DARK_MODE = false; // Default: Light Mode
+        let IS_DARK_MODE = false;
 
-        // --- THEME TOGGLE LOGIC ---
         function toggleTheme() {
             const checkbox = document.getElementById('darkModeToggle');
             IS_DARK_MODE = checkbox.checked;
-            
-            // 1. Update CSS Variables via attribute
-            if (IS_DARK_MODE) {
-                document.body.setAttribute('data-theme', 'dark');
-            } else {
-                document.body.removeAttribute('data-theme');
-            }
-
-            // 2. Force Chart Repaint (Plotly needs explicit color updates)
+            if (IS_DARK_MODE) document.body.setAttribute('data-theme', 'dark');
+            else document.body.removeAttribute('data-theme');
             let sliderVal = document.getElementById('stepSlider').value;
-            if (Object.keys(FINAL_DATA).length > 0) {
-                updateChart(parseInt(sliderVal));
-            }
+            if (Object.keys(FINAL_DATA).length > 0) updateChart(parseInt(sliderVal));
         }
 
         async function startApp() {
@@ -208,9 +176,12 @@
                 const json = await res.json();
                 let result = json.chart.result[0];
                 spyData = { prices: result.indicators.quote[0].close, times: result.timestamp };
-            } catch (e) { console.error("SPY Error", e); }
-
-            if (!spyData) return;
+            } catch (e) { 
+                console.error("SPY Error", e);
+                status.innerText = "Error: Could not load SPY data. Try refreshing.";
+                status.style.color = "red";
+                return;
+            }
 
             for (let i = 0; i < SECTOR_MAP.length; i++) {
                 let ticker = SECTOR_MAP[i].tick;
@@ -226,6 +197,7 @@
             }
 
             status.innerText = "Processing Relative Strength...";
+            status.style.color = "var(--text-secondary)";
             processData(rawData, spyData);
         }
 
@@ -246,19 +218,16 @@
                 checkbox.addEventListener('change', (e) => {
                     if (e.target.checked) VISIBLE_SECTORS.add(item.tick);
                     else VISIBLE_SECTORS.delete(item.tick);
-                    
                     let sliderVal = document.getElementById('stepSlider').value;
                     if (Object.keys(FINAL_DATA).length > 0) updateChart(parseInt(sliderVal));
                 });
 
                 label.appendChild(checkbox);
-                
                 const tickSpan = document.createElement('span');
                 tickSpan.className = 'ticker-span';
                 tickSpan.style.color = item.color;
                 tickSpan.innerText = item.tick;
                 label.appendChild(tickSpan);
-
                 label.appendChild(document.createTextNode(` (${item.name})`));
                 container.appendChild(label);
             });
@@ -267,12 +236,10 @@
         function toggleAll(selectAll) {
             const checkboxes = document.querySelectorAll('.sector-cb');
             VISIBLE_SECTORS.clear();
-
             checkboxes.forEach(cb => {
                 cb.checked = selectAll;
                 if (selectAll) VISIBLE_SECTORS.add(cb.value);
             });
-
             let sliderVal = document.getElementById('stepSlider').value;
             if (Object.keys(FINAL_DATA).length > 0) updateChart(parseInt(sliderVal));
         }
@@ -324,15 +291,12 @@
         function setupSlider() {
             const slider = document.getElementById('stepSlider');
             const sub = document.getElementById('sub-text');
-            
             let maxSteps = DATE_LABELS.length - 1;
             slider.max = maxSteps;
             slider.value = maxSteps;
             slider.disabled = false;
-
             sub.innerText = "Data loaded. Drag slider to move through time.";
             updateChart(maxSteps);
-
             slider.addEventListener('input', (e) => updateChart(parseInt(e.target.value)));
         }
 
@@ -371,7 +335,6 @@
                 });
             });
 
-            // --- DYNAMIC THEME COLORS FOR CHART ---
             const cardBg = IS_DARK_MODE ? '#121212' : '#ffffff';
             const gridColor = IS_DARK_MODE ? '#333333' : '#e0e0e0';
             const textColor = IS_DARK_MODE ? '#a0a0a0' : '#666666';
@@ -401,10 +364,8 @@
                     { x: 240, y: 10, text: 'Weakening', showarrow: false, font: { size: 16, color: '#ff7f0e', weight: 'bold' }, xanchor: 'right' }
                 ],
                 shapes: [
-                    // Crosshairs
                     { type: 'line', x0: 100, y0: 0, x1: 100, y1: 250, line: { color: crosshair, width: 2 } },
                     { type: 'line', x0: 0, y0: 100, x1: 250, y1: 100, line: { color: crosshair, width: 2 } },
-                    // Quadrants
                     { type: 'rect', x0: 100, y0: 100, x1: 250, y1: 250, fillcolor: 'rgba(0, 200, 0, 0.03)', line: {width:0}},
                     { type: 'rect', x0: 0, y0: 0, x1: 100, y1: 100, fillcolor: 'rgba(200, 0, 0, 0.03)', line: {width:0}},
                     { type: 'rect', x0: 0, y0: 100, x1: 100, y1: 250, fillcolor: 'rgba(0, 0, 200, 0.03)', line: {width:0}},
