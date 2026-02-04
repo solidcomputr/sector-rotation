@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sector Rotation (Google Engine)</title>
+    <title>Sector Rotation (Live Tail Control)</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
@@ -16,15 +16,6 @@
             --border-color: #333; --accent-blue: #4dabf7; --grid-color: #333;
         }
         body { font-family: 'Segoe UI', Roboto, sans-serif; text-align: center; background-color: var(--bg-color); color: var(--text-primary); padding: 20px; transition: 0.3s; }
-        h1 { margin-bottom: 20px; font-weight: 300; text-transform: uppercase; letter-spacing: 1px; }
-        .header-row { max-width: 1100px; margin: 0 auto 20px auto; display: flex; justify-content: space-between; align-items: center; }
-        .theme-switch-wrapper { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 0.9em; }
-        .theme-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
-        .theme-switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--accent-blue); }
-        input:checked + .slider:before { transform: translateX(24px); }
         
         #controls, #chart-card {
             background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px;
@@ -32,6 +23,13 @@
         }
         #chart-container { width: 100%; height: 800px; }
         
+        /* Debug Box */
+        #debug-log { 
+            font-family: monospace; font-size: 0.85em; color: #d63384; 
+            background: rgba(0,0,0,0.05); padding: 10px; border-radius: 4px; 
+            margin-top: 10px; white-space: pre-wrap; display: none;
+        }
+
         button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; margin: 0 5px; }
         .select-btn { background: var(--accent-blue); color: white; }
         .clear-btn { background: #e0e0e0; color: #333; }
@@ -41,11 +39,25 @@
         .ticker-span { font-weight: 700; }
         
         input[type=range] { width: 100%; cursor: pointer; margin-top: 15px; accent-color: var(--accent-blue); }
-        #date-display { font-size: 1.6em; font-weight: 600; display: block; margin-bottom: 5px; color: var(--text-primary); }
+        
+        #tail-display { font-size: 1.4em; font-weight: 600; display: block; margin-bottom: 5px; color: var(--text-primary); }
+        #latest-date { font-size: 0.9em; color: var(--text-secondary); margin-bottom: 15px; display: block; }
         .highlight { color: var(--accent-blue); }
+        
+        .header-row { max-width: 1100px; margin: 0 auto 20px auto; display: flex; justify-content: space-between; align-items: center; }
+        .theme-switch-wrapper { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 0.9em; }
+        .theme-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .theme-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-blue); }
+        input:checked + .slider:before { transform: translateX(24px); }
+        
+        .slider-labels { display: flex; justify-content: space-between; margin-top: 5px; font-size: 0.8em; color: var(--text-secondary); }
     </style>
 </head>
 <body>
+
     <div class="header-row">
         <h1>Sector Rotation</h1>
         <div class="theme-switch-wrapper">
@@ -59,10 +71,19 @@
             <button class="select-btn" onclick="toggleAll(true)">Select All</button>
             <button class="clear-btn" onclick="toggleAll(false)">Clear All</button>
         </div>
+        
         <div id="checkbox-container"></div>
-        <span id="date-display">Loading Data...</span>
-        <span id="sub-text">Fetching live data from Google Sheets...</span>
-        <input type="range" id="stepSlider" min="0" max="6" value="6" step="1" disabled>
+        
+        <span id="tail-display">Tail Length: 0 Weeks</span>
+        <span id="latest-date">Latest Data: Loading...</span>
+        
+        <input type="range" id="tailSlider" min="0" max="15" value="0" step="1" disabled>
+        <div class="slider-labels">
+            <span>0 (Snapshot)</span>
+            <span>15 Weeks History</span>
+        </div>
+
+        <div id="debug-log"></div>
     </div>
 
     <div id="chart-card">
@@ -70,13 +91,11 @@
     </div>
 
     <script>
-        // --- PASTE YOUR GOOGLE SHEETS CSV LINK HERE ---
-        const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKiSJvMjdh123iTfKji9agJYaogbiDcwxTh51LEZDImpAanb3cFfeyBT4Cf-izrtWBLuzvHPGhCPYf/pub?gid=0&single=true&output=csv";
+        // --- PASTE YOUR GOOGLE CSV LINK HERE ---
+        const SHEET_URL = "PASTE_YOUR_GOOGLE_CSV_LINK_HERE";
         
-        const CUTOFF_TIMESTAMP = new Date("2025-12-23").getTime();
+        const CUTOFF_TIMESTAMP = new Date("2024-01-01").getTime(); // Extended fallback
 
-        // Map columns from the sheet to tickers (Order matches the HSTACK formula)
-        // Col 0=Date, 1=Close(SPY), 2=XLK, 3=XLF, etc.
         const SECTOR_MAP = [
             { tick: 'XLK', name: 'Technology', colIndex: 2, color: '#1f77b4' },
             { tick: 'XLF', name: 'Financials', colIndex: 3, color: '#ff7f0e' },
@@ -92,9 +111,16 @@
         ];
 
         let FINAL_DATA = {};
-        let DATE_LABELS = [];
+        let ALL_DATES = [];
         let VISIBLE_SECTORS = new Set(SECTOR_MAP.map(s => s.tick)); 
         let IS_DARK_MODE = false;
+
+        function logError(msg) {
+            const el = document.getElementById('debug-log');
+            el.style.display = 'block';
+            el.innerText += "⚠️ " + msg + "\n";
+            console.error(msg);
+        }
 
         function toggleTheme() {
             IS_DARK_MODE = document.getElementById('darkModeToggle').checked;
@@ -102,81 +128,95 @@
             if (Object.keys(FINAL_DATA).length > 0) updateChart();
         }
 
+        function parseDate(dateStr) {
+            if (!dateStr) return null;
+            let d = new Date(dateStr);
+            if (!isNaN(d.getTime())) return d.getTime();
+            const parts = dateStr.split(/[\/\-\.]/);
+            if (parts.length === 3) {
+                let year = parseInt(parts[2].substring(0, 4));
+                let month = parseInt(parts[1]) - 1; 
+                let day = parseInt(parts[0]);
+                let d2 = new Date(year, month, day);
+                if (!isNaN(d2.getTime())) return d2.getTime();
+            }
+            return null;
+        }
+
         function startApp() {
             setupCheckboxes();
-            const status = document.getElementById('sub-text');
+            const status = document.getElementById('latest-date');
             
             if (SHEET_URL.includes("PASTE_YOUR")) {
-                status.innerText = "Error: Please edit index.html and paste your Google CSV Link.";
+                status.innerText = "Error: Paste Google Link in Code.";
                 status.style.color = "red";
                 return;
             }
 
-            Papa.parse(SHEET_URL, {
-                download: true,
-                header: false, // We use index based parsing
-                skipEmptyLines: true,
-                complete: function(results) {
-                    processSheetData(results.data);
-                },
-                error: function(err) {
-                    status.innerText = "Error loading Google Sheet.";
-                    console.error(err);
-                }
-            });
+            fetch(SHEET_URL)
+                .then(res => { if (!res.ok) throw new Error("Network Error"); return res.text(); })
+                .then(csvText => {
+                    Papa.parse(csvText, {
+                        header: false, skipEmptyLines: true,
+                        complete: function(results) { processSheetData(results.data); }
+                    });
+                })
+                .catch(err => { status.innerText = "Error loading Sheet."; logError(err.message); });
         }
 
         function processSheetData(rows) {
-            // Rows[0] is headers, Rows[1...] is data
-            // Col 0 is Date, Col 1 is SPY
-            
-            // Extract SPY and Dates first
+            if (!rows || rows.length < 5) { logError("Empty Sheet"); return; }
+
             let spyPrices = [];
             let timestamps = [];
-            
-            // Start loop at 2 (Row 3 in sheet) to skip headers and potential loading rows
+
+            // 1. Parse all rows
             for (let i = 2; i < rows.length; i++) {
                 let row = rows[i];
-                let dateStr = row[0]; // e.g., "2/4/2026 16:00:00"
+                let ts = parseDate(row[0]);
                 let spyVal = parseFloat(row[1]);
-
-                if (!dateStr || isNaN(spyVal)) continue;
-                
-                let ts = new Date(dateStr).getTime();
+                if (!ts || isNaN(spyVal)) continue;
                 timestamps.push(ts);
                 spyPrices.push(spyVal);
             }
 
-            // Identify the 7 target indices (Weekly steps)
+            if (timestamps.length < 65) { logError("Insufficient History (Need > 65 days)."); return; }
+
+            // 2. Identify Target Indices (Today + 15 weeks back = 16 points)
+            // We want index 0 to be the OLDEST, index 15 to be NEWEST (Today)
             let lastIndex = timestamps.length - 1;
             let targetIndices = [];
-            for (let i = 0; i < 7; i++) {
-                let idx = lastIndex - (i * 5); // 5 trading days = 1 week
-                if (idx >= 0) targetIndices.unshift(idx);
+            
+            // Loop 15 down to 0
+            for (let i = 15; i >= 0; i--) {
+                let idx = lastIndex - (i * 5); // 5 days per week
+                if (idx >= 60) { // Ensure we have 60 days buffer before this point
+                    targetIndices.push(idx);
+                }
             }
 
-            DATE_LABELS = targetIndices.map(idx => {
+            ALL_DATES = targetIndices.map(idx => {
                 let d = new Date(timestamps[idx]);
                 return d.toLocaleDateString("en-US", { day: 'numeric', month: 'short', year: 'numeric' });
             });
+            
+            // Update "Latest Date" text
+            if (ALL_DATES.length > 0) {
+                document.getElementById('latest-date').innerText = "Latest Data: " + ALL_DATES[ALL_DATES.length - 1];
+            }
 
-            // Process Each Sector
+            // 3. Calculate RRG for these indices
             SECTOR_MAP.forEach(item => {
                 let col = item.colIndex;
                 let points = [];
-                let sectorPrices = rows.map(r => parseFloat(r[col])).slice(2); // Align with loop above
-                
-                // Note: slice(2) removed headers, but we pushed to arrays inside loop starting at 2
-                // We need to access full columns to align with targetIndices
-                // Let's grab the full column data cleanly:
                 let fullSectorPrices = [];
-                for(let k=2; k<rows.length; k++) fullSectorPrices.push(parseFloat(rows[k][col]));
+                for(let k=2; k<rows.length; k++) {
+                    let val = parseFloat(rows[k][col]);
+                    fullSectorPrices.push(isNaN(val) ? null : val);
+                }
 
                 targetIndices.forEach((idx, step) => {
-                    // Check Cutoff
-                    if (timestamps[idx] < CUTOFF_TIMESTAMP) return;
-                    if (idx < 60) return; // Need history for calc
-
+                    // Match the timestamp index to the price arrays (which started at row 2)
                     let spyNow = spyPrices[idx];
                     let spyOld60 = spyPrices[idx-60];
                     let spyOld10 = spyPrices[idx-10];
@@ -185,9 +225,8 @@
                     let secOld60 = fullSectorPrices[idx-60];
                     let secOld10 = fullSectorPrices[idx-10];
 
-                    if(!spyNow || !secNow) return;
+                    if(!spyNow || !secNow || !spyOld60 || !secOld60) return;
 
-                    // RRG Math
                     let spyTrend = (spyNow - spyOld60) / spyOld60;
                     let secTrend = (secNow - secOld60) / secOld60;
                     let rsRatio = 100 + ((secTrend - spyTrend) * 100);
@@ -199,29 +238,25 @@
                     let x = 100 + (rsRatio - 100) * 6;
                     let y = 100 + (rsMom - 100) * 6;
                     
-                    points.push({ x: x, y: y, date: DATE_LABELS[step] });
+                    points.push({ x: x, y: y, date: ALL_DATES[step] });
                 });
                 FINAL_DATA[item.tick] = points;
             });
 
-            document.getElementById('sub-text').innerText = "Live Market Data Loaded.";
             setupSlider();
         }
 
         function setupSlider() {
-            const slider = document.getElementById('stepSlider');
-            let maxSteps = DATE_LABELS.length - 1;
-            slider.max = maxSteps;
-            slider.value = maxSteps;
+            const slider = document.getElementById('tailSlider');
             slider.disabled = false;
+            slider.value = 0; // Default: Only most recent
             updateChart();
             slider.addEventListener('input', updateChart);
         }
 
         function updateChart() {
-            let stepIndex = parseInt(document.getElementById('stepSlider').value);
-            let dateStr = DATE_LABELS[stepIndex] || "N/A";
-            document.getElementById('date-display').innerHTML = `Snapshot Date: <span class="highlight">${dateStr}</span>`;
+            let tailLength = parseInt(document.getElementById('tailSlider').value);
+            document.getElementById('tail-display').innerHTML = `Tail Length: <span class="highlight">${tailLength} Weeks</span>`;
 
             let traces = [];
 
@@ -229,7 +264,17 @@
                 if (!VISIBLE_SECTORS.has(item.tick)) return;
                 if (!FINAL_DATA[item.tick]) return;
                 
-                let visiblePoints = FINAL_DATA[item.tick].filter((_, i) => i <= stepIndex);
+                let fullData = FINAL_DATA[item.tick];
+                let totalPoints = fullData.length;
+                
+                // SLICING LOGIC:
+                // We always want the HEAD (last point).
+                // We want 'tailLength' points BEFORE the head.
+                // Start Index = (Total - 1) - TailLength
+                let startIndex = (totalPoints - 1) - tailLength;
+                if (startIndex < 0) startIndex = 0;
+
+                let visiblePoints = fullData.slice(startIndex, totalPoints);
                 if (visiblePoints.length === 0) return;
 
                 let xVals = visiblePoints.map(p => p.x);
@@ -242,8 +287,7 @@
                     name: item.tick,
                     line: { color: color, width: 3, shape: 'spline' },
                     marker: { 
-                        // HERE IS THE CHANGE:
-                        // If it's the last point (head), size is 14. Otherwise, size is 6.
+                        // Last point = 14 (Head), others = 6 (Tail)
                         size: xVals.map((_, i) => i === xVals.length - 1 ? 14 : 6),
                         color: color,
                         opacity: xVals.map((_, i) => i === xVals.length - 1 ? 1 : 0.6),
