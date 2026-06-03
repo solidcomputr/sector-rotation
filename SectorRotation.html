@@ -139,10 +139,10 @@
         <span id="date-display">Initializing...</span>
         <span id="sub-text">Connecting to market data feed...</span>
         
-        <input type="range" id="stepSlider" min="0" max="6" value="6" step="1" disabled>
-        <div class="time-labels">
-            <span>Oldest (7 Weeks Ago)</span>
-            <span>Newest (Today)</span>
+        <input type="range" id="stepSlider" min="0" max="6" value="0" step="1" disabled>
+        <div class="time-labels" id="slider-labels">
+            <span>Current Snapshot</span>
+            <span>Show History Tails</span>
         </div>
     </div>
 
@@ -190,25 +190,17 @@
         let FINAL_DATA = {};
         let DATE_LABELS = [];
         let VISIBLE_SECTORS = new Set(SECTOR_MAP.filter(s => s.defaultOn).map(s => s.tick)); 
-        let IS_DARK_MODE = false; // Default: Light Mode
+        let IS_DARK_MODE = false;
 
-        // --- THEME TOGGLE LOGIC ---
         function toggleTheme() {
             const checkbox = document.getElementById('darkModeToggle');
             IS_DARK_MODE = checkbox.checked;
             
-            // 1. Update CSS Variables via attribute
-            if (IS_DARK_MODE) {
-                document.body.setAttribute('data-theme', 'dark');
-            } else {
-                document.body.removeAttribute('data-theme');
-            }
+            if (IS_DARK_MODE) document.body.setAttribute('data-theme', 'dark');
+            else document.body.removeAttribute('data-theme');
 
-            // 2. Force Chart Repaint (Plotly needs explicit color updates)
             let sliderVal = document.getElementById('stepSlider').value;
-            if (Object.keys(FINAL_DATA).length > 0) {
-                updateChart(parseInt(sliderVal));
-            }
+            if (Object.keys(FINAL_DATA).length > 0) updateChart(parseInt(sliderVal));
         }
 
         async function startApp() {
@@ -238,7 +230,7 @@
                     const json = await res.json();
                     let result = json.chart.result[0];
                     rawData[ticker] = { prices: result.indicators.quote[0].close, times: result.timestamp };
-                    await delay(250); // Slightly lowered delay to handle the larger payload faster
+                    await delay(150); 
                 } catch (e) { console.error(e); }
             }
 
@@ -297,6 +289,7 @@
         function processData(rawData, spy) {
             let lastIndex = spy.times.length - 1;
             let targetIndices = [];
+            // We want 7 data points (current + 6 weeks of history)
             for (let i = 0; i < 7; i++) {
                 let idx = lastIndex - (i * 5);
                 if (idx >= 0) targetIndices.unshift(idx);
@@ -326,7 +319,6 @@
                     let secMom = (prices[idx] - prices[idx-10]) / prices[idx-10];
                     let rsMom = 100 + ((secMom - spyMom) * 100);
 
-                    // 6x Multiplier for 0-250 scale
                     let x = 100 + (rsRatio - 100) * 6;
                     let y = 100 + (rsMom - 100) * 6;
 
@@ -342,20 +334,29 @@
             const slider = document.getElementById('stepSlider');
             const sub = document.getElementById('sub-text');
             
-            let maxSteps = DATE_LABELS.length - 1;
-            slider.max = maxSteps;
-            slider.value = maxSteps;
+            let maxTail = DATE_LABELS.length - 1;
+            slider.min = 0;
+            slider.max = maxTail;
+            slider.value = 0; // Default to 0 (No Tail, Current Only)
             slider.disabled = false;
 
-            sub.innerText = "Data loaded. Drag slider to move through time.";
-            updateChart(maxSteps);
+            sub.innerText = "Data loaded. Drag the slider to reveal historical trails.";
+            document.getElementById('slider-labels').innerHTML = `
+                <span>Current Point Only</span>
+                <span>Full History (${maxTail} Weeks)</span>
+            `;
+
+            updateChart(0); // Start with only the newest data points
 
             slider.addEventListener('input', (e) => updateChart(parseInt(e.target.value)));
         }
 
-        function updateChart(stepIndex) {
-            let dateStr = DATE_LABELS[stepIndex] || "N/A";
-            document.getElementById('date-display').innerHTML = `Snapshot Date: <span class="highlight">${dateStr}</span>`;
+        function updateChart(tailLength) {
+            let newestIndex = DATE_LABELS.length - 1;
+            let dateStr = DATE_LABELS[newestIndex] || "N/A";
+            
+            let tailText = tailLength === 0 ? "No Trail" : `${tailLength}-Week Trail`;
+            document.getElementById('date-display').innerHTML = `Latest Data: <span class="highlight">${dateStr}</span> <span style="font-size: 0.5em; color: var(--text-secondary); margin-left: 10px;">(${tailText})</span>`;
 
             let traces = [];
 
@@ -364,7 +365,11 @@
                 if (!VISIBLE_SECTORS.has(ticker)) return;
                 if (!FINAL_DATA[ticker]) return;
                 
-                let visiblePoints = FINAL_DATA[ticker].filter((_, i) => i <= stepIndex);
+                // If tailLength is 0, we only take the very last point.
+                // If tailLength is 6, we take all 7 points.
+                let startIndex = newestIndex - tailLength;
+                let visiblePoints = FINAL_DATA[ticker].slice(startIndex);
+                
                 if (visiblePoints.length === 0) return;
 
                 let xVals = visiblePoints.map(p => p.x);
@@ -384,11 +389,10 @@
                     text: xVals.map((_, i) => i === xVals.length - 1 ? ticker : ''),
                     textposition: 'top center',
                     textfont: { family: 'Arial', weight: 'bold', size: 15, color: color },
-                    hoverinfo: 'name+x+y'
+                    hoverinfo: 'name+text'
                 });
             });
 
-            // --- DYNAMIC THEME COLORS FOR CHART ---
             const cardBg = IS_DARK_MODE ? '#121212' : '#ffffff';
             const gridColor = IS_DARK_MODE ? '#333333' : '#e0e0e0';
             const textColor = IS_DARK_MODE ? '#a0a0a0' : '#666666';
@@ -418,10 +422,8 @@
                     { x: 240, y: 10, text: 'Weakening', showarrow: false, font: { size: 16, color: '#ff7f0e', weight: 'bold' }, xanchor: 'right' }
                 ],
                 shapes: [
-                    // Crosshairs
                     { type: 'line', x0: 100, y0: 0, x1: 100, y1: 250, line: { color: crosshair, width: 2 } },
                     { type: 'line', x0: 0, y0: 100, x1: 250, y1: 100, line: { color: crosshair, width: 2 } },
-                    // Quadrants
                     { type: 'rect', x0: 100, y0: 100, x1: 250, y1: 250, fillcolor: 'rgba(0, 200, 0, 0.03)', line: {width:0}},
                     { type: 'rect', x0: 0, y0: 0, x1: 100, y1: 100, fillcolor: 'rgba(200, 0, 0, 0.03)', line: {width:0}},
                     { type: 'rect', x0: 0, y0: 100, x1: 100, y1: 250, fillcolor: 'rgba(0, 0, 200, 0.03)', line: {width:0}},
