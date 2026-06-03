@@ -139,10 +139,10 @@
         <span id="date-display">Initializing...</span>
         <span id="sub-text">Connecting to market data feed...</span>
         
-        <input type="range" id="stepSlider" min="0" max="6" value="6" step="1" disabled>
-        <div class="time-labels">
-            <span>Oldest (7 Weeks Ago)</span>
-            <span>Newest (Today)</span>
+        <input type="range" id="stepSlider" min="0" max="6" value="0" step="1" disabled>
+        <div class="time-labels" id="slider-labels">
+            <span>Current Snapshot</span>
+            <span>Show History Tails</span>
         </div>
     </div>
 
@@ -157,41 +157,50 @@
 
         // SECTOR DATA
         const SECTOR_MAP = [
-            { tick: 'XLK', name: 'Technology', color: '#1f77b4' },
-            { tick: 'XLF', name: 'Financials', color: '#ff7f0e' },
-            { tick: 'XLV', name: 'Healthcare', color: '#2ca02c' },
-            { tick: 'XLC', name: 'Comm. Services', color: '#d62728' },
-            { tick: 'XLY', name: 'Discretionary', color: '#9467bd' },
-            { tick: 'XLI', name: 'Industrials', color: '#8c564b' },
-            { tick: 'XLP', name: 'Staples', color: '#e377c2' },
-            { tick: 'XLE', name: 'Energy', color: '#7f7f7f' },
-            { tick: 'XLU', name: 'Utilities', color: '#bcbd22' },
-            { tick: 'XLRE', name: 'Real Estate', color: '#17becf' },
-            { tick: 'XLB', name: 'Materials', color: '#aec7e8' }
+            // --- MAIN SECTORS (Default ON) ---
+            { tick: 'XLK', name: 'Technology (0.09%)', color: '#1f77b4', defaultOn: true },
+            { tick: 'XLF', name: 'Financials (0.09%)', color: '#ff7f0e', defaultOn: true },
+            { tick: 'XLV', name: 'Healthcare (0.09%)', color: '#2ca02c', defaultOn: true },
+            { tick: 'XLC', name: 'Comm. Services (0.09%)', color: '#d62728', defaultOn: true },
+            { tick: 'XLY', name: 'Discretionary (0.09%)', color: '#9467bd', defaultOn: true },
+            { tick: 'XLI', name: 'Industrials (0.09%)', color: '#8c564b', defaultOn: true },
+            { tick: 'XLP', name: 'Staples (0.09%)', color: '#e377c2', defaultOn: true },
+            { tick: 'XLE', name: 'Energy (0.09%)', color: '#7f7f7f', defaultOn: true },
+            { tick: 'XLU', name: 'Utilities (0.09%)', color: '#bcbd22', defaultOn: true },
+            { tick: 'XLRE', name: 'Real Estate (0.09%)', color: '#17becf', defaultOn: true },
+            { tick: 'XLB', name: 'Materials (0.09%)', color: '#aec7e8', defaultOn: true },
+            
+            // --- SUB-SECTORS (Default OFF to prevent clutter) ---
+            { tick: 'IYT', name: 'Transportation (0.38%)', color: '#b87333', defaultOn: false },
+            { tick: 'JETS', name: 'Airlines (0.60%)', color: '#00ced1', defaultOn: false },
+            { tick: 'ITA', name: 'Aerospace & Def (0.38%)', color: '#556b2f', defaultOn: false },
+            { tick: 'SMH', name: 'Semiconductors (0.35%)', color: '#00008b', defaultOn: false },
+            { tick: 'IGV', name: 'Software (0.39%)', color: '#4169e1', defaultOn: false },
+            { tick: 'FDN', name: 'Internet (0.52%)', color: '#dc143c', defaultOn: false },
+            { tick: 'KRE', name: 'Regional Banks (0.35%)', color: '#ff8c00', defaultOn: false },
+            { tick: 'XBI', name: 'Biotech (0.35%)', color: '#32cd32', defaultOn: false },
+            { tick: 'IHI', name: 'Medical Devices (0.38%)', color: '#00fa9a', defaultOn: false },
+            { tick: 'XRT', name: 'Retail (0.35%)', color: '#da70d6', defaultOn: false },
+            { tick: 'ITB', name: 'Homebuilders (0.38%)', color: '#8a2be2', defaultOn: false },
+            { tick: 'XME', name: 'Metals & Mining (0.35%)', color: '#4682b4', defaultOn: false },
+            { tick: 'XOP', name: 'Oil & Gas E&P (0.35%)', color: '#696969', defaultOn: false },
+            { tick: 'OIH', name: 'Oil Services (0.35%)', color: '#a9a9a9', defaultOn: false }
         ];
 
         let FINAL_DATA = {};
         let DATE_LABELS = [];
-        let VISIBLE_SECTORS = new Set(SECTOR_MAP.map(s => s.tick)); 
-        let IS_DARK_MODE = false; // Default: Light Mode
+        let VISIBLE_SECTORS = new Set(SECTOR_MAP.filter(s => s.defaultOn).map(s => s.tick)); 
+        let IS_DARK_MODE = false;
 
-        // --- THEME TOGGLE LOGIC ---
         function toggleTheme() {
             const checkbox = document.getElementById('darkModeToggle');
             IS_DARK_MODE = checkbox.checked;
             
-            // 1. Update CSS Variables via attribute
-            if (IS_DARK_MODE) {
-                document.body.setAttribute('data-theme', 'dark');
-            } else {
-                document.body.removeAttribute('data-theme');
-            }
+            if (IS_DARK_MODE) document.body.setAttribute('data-theme', 'dark');
+            else document.body.removeAttribute('data-theme');
 
-            // 2. Force Chart Repaint (Plotly needs explicit color updates)
             let sliderVal = document.getElementById('stepSlider').value;
-            if (Object.keys(FINAL_DATA).length > 0) {
-                updateChart(parseInt(sliderVal));
-            }
+            if (Object.keys(FINAL_DATA).length > 0) updateChart(parseInt(sliderVal));
         }
 
         async function startApp() {
@@ -221,7 +230,7 @@
                     const json = await res.json();
                     let result = json.chart.result[0];
                     rawData[ticker] = { prices: result.indicators.quote[0].close, times: result.timestamp };
-                    await delay(350); 
+                    await delay(150); 
                 } catch (e) { console.error(e); }
             }
 
@@ -240,7 +249,7 @@
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.className = 'sector-cb';
-                checkbox.checked = true; 
+                checkbox.checked = item.defaultOn; 
                 checkbox.value = item.tick;
 
                 checkbox.addEventListener('change', (e) => {
@@ -280,6 +289,7 @@
         function processData(rawData, spy) {
             let lastIndex = spy.times.length - 1;
             let targetIndices = [];
+            // We want 7 data points (current + 6 weeks of history)
             for (let i = 0; i < 7; i++) {
                 let idx = lastIndex - (i * 5);
                 if (idx >= 0) targetIndices.unshift(idx);
@@ -309,7 +319,6 @@
                     let secMom = (prices[idx] - prices[idx-10]) / prices[idx-10];
                     let rsMom = 100 + ((secMom - spyMom) * 100);
 
-                    // 6x Multiplier for 0-250 scale
                     let x = 100 + (rsRatio - 100) * 6;
                     let y = 100 + (rsMom - 100) * 6;
 
@@ -325,20 +334,29 @@
             const slider = document.getElementById('stepSlider');
             const sub = document.getElementById('sub-text');
             
-            let maxSteps = DATE_LABELS.length - 1;
-            slider.max = maxSteps;
-            slider.value = maxSteps;
+            let maxTail = DATE_LABELS.length - 1;
+            slider.min = 0;
+            slider.max = maxTail;
+            slider.value = 0; // Default to 0 (No Tail, Current Only)
             slider.disabled = false;
 
-            sub.innerText = "Data loaded. Drag slider to move through time.";
-            updateChart(maxSteps);
+            sub.innerText = "Data loaded. Drag the slider to reveal historical trails.";
+            document.getElementById('slider-labels').innerHTML = `
+                <span>Current Point Only</span>
+                <span>Full History (${maxTail} Weeks)</span>
+            `;
+
+            updateChart(0); // Start with only the newest data points
 
             slider.addEventListener('input', (e) => updateChart(parseInt(e.target.value)));
         }
 
-        function updateChart(stepIndex) {
-            let dateStr = DATE_LABELS[stepIndex] || "N/A";
-            document.getElementById('date-display').innerHTML = `Snapshot Date: <span class="highlight">${dateStr}</span>`;
+        function updateChart(tailLength) {
+            let newestIndex = DATE_LABELS.length - 1;
+            let dateStr = DATE_LABELS[newestIndex] || "N/A";
+            
+            let tailText = tailLength === 0 ? "No Trail" : `${tailLength}-Week Trail`;
+            document.getElementById('date-display').innerHTML = `Latest Data: <span class="highlight">${dateStr}</span> <span style="font-size: 0.5em; color: var(--text-secondary); margin-left: 10px;">(${tailText})</span>`;
 
             let traces = [];
 
@@ -347,7 +365,11 @@
                 if (!VISIBLE_SECTORS.has(ticker)) return;
                 if (!FINAL_DATA[ticker]) return;
                 
-                let visiblePoints = FINAL_DATA[ticker].filter((_, i) => i <= stepIndex);
+                // If tailLength is 0, we only take the very last point.
+                // If tailLength is 6, we take all 7 points.
+                let startIndex = newestIndex - tailLength;
+                let visiblePoints = FINAL_DATA[ticker].slice(startIndex);
+                
                 if (visiblePoints.length === 0) return;
 
                 let xVals = visiblePoints.map(p => p.x);
@@ -367,11 +389,10 @@
                     text: xVals.map((_, i) => i === xVals.length - 1 ? ticker : ''),
                     textposition: 'top center',
                     textfont: { family: 'Arial', weight: 'bold', size: 15, color: color },
-                    hoverinfo: 'name+x+y'
+                    hoverinfo: 'name+text'
                 });
             });
 
-            // --- DYNAMIC THEME COLORS FOR CHART ---
             const cardBg = IS_DARK_MODE ? '#121212' : '#ffffff';
             const gridColor = IS_DARK_MODE ? '#333333' : '#e0e0e0';
             const textColor = IS_DARK_MODE ? '#a0a0a0' : '#666666';
@@ -401,10 +422,8 @@
                     { x: 240, y: 10, text: 'Weakening', showarrow: false, font: { size: 16, color: '#ff7f0e', weight: 'bold' }, xanchor: 'right' }
                 ],
                 shapes: [
-                    // Crosshairs
                     { type: 'line', x0: 100, y0: 0, x1: 100, y1: 250, line: { color: crosshair, width: 2 } },
                     { type: 'line', x0: 0, y0: 100, x1: 250, y1: 100, line: { color: crosshair, width: 2 } },
-                    // Quadrants
                     { type: 'rect', x0: 100, y0: 100, x1: 250, y1: 250, fillcolor: 'rgba(0, 200, 0, 0.03)', line: {width:0}},
                     { type: 'rect', x0: 0, y0: 0, x1: 100, y1: 100, fillcolor: 'rgba(200, 0, 0, 0.03)', line: {width:0}},
                     { type: 'rect', x0: 0, y0: 100, x1: 100, y1: 250, fillcolor: 'rgba(0, 0, 200, 0.03)', line: {width:0}},
