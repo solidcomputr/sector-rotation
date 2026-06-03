@@ -157,22 +157,39 @@
 
         // SECTOR DATA
         const SECTOR_MAP = [
-            { tick: 'XLK', name: 'Technology', color: '#1f77b4' },
-            { tick: 'XLF', name: 'Financials', color: '#ff7f0e' },
-            { tick: 'XLV', name: 'Healthcare', color: '#2ca02c' },
-            { tick: 'XLC', name: 'Comm. Services', color: '#d62728' },
-            { tick: 'XLY', name: 'Discretionary', color: '#9467bd' },
-            { tick: 'XLI', name: 'Industrials', color: '#8c564b' },
-            { tick: 'XLP', name: 'Staples', color: '#e377c2' },
-            { tick: 'XLE', name: 'Energy', color: '#7f7f7f' },
-            { tick: 'XLU', name: 'Utilities', color: '#bcbd22' },
-            { tick: 'XLRE', name: 'Real Estate', color: '#17becf' },
-            { tick: 'XLB', name: 'Materials', color: '#aec7e8' }
+            // --- MAIN SECTORS (Default ON) ---
+            { tick: 'XLK', name: 'Technology (0.09%)', color: '#1f77b4', defaultOn: true },
+            { tick: 'XLF', name: 'Financials (0.09%)', color: '#ff7f0e', defaultOn: true },
+            { tick: 'XLV', name: 'Healthcare (0.09%)', color: '#2ca02c', defaultOn: true },
+            { tick: 'XLC', name: 'Comm. Services (0.09%)', color: '#d62728', defaultOn: true },
+            { tick: 'XLY', name: 'Discretionary (0.09%)', color: '#9467bd', defaultOn: true },
+            { tick: 'XLI', name: 'Industrials (0.09%)', color: '#8c564b', defaultOn: true },
+            { tick: 'XLP', name: 'Staples (0.09%)', color: '#e377c2', defaultOn: true },
+            { tick: 'XLE', name: 'Energy (0.09%)', color: '#7f7f7f', defaultOn: true },
+            { tick: 'XLU', name: 'Utilities (0.09%)', color: '#bcbd22', defaultOn: true },
+            { tick: 'XLRE', name: 'Real Estate (0.09%)', color: '#17becf', defaultOn: true },
+            { tick: 'XLB', name: 'Materials (0.09%)', color: '#aec7e8', defaultOn: true },
+            
+            // --- SUB-SECTORS (Default OFF to prevent clutter) ---
+            { tick: 'IYT', name: 'Transportation (0.38%)', color: '#b87333', defaultOn: false },
+            { tick: 'JETS', name: 'Airlines (0.60%)', color: '#00ced1', defaultOn: false },
+            { tick: 'ITA', name: 'Aerospace & Def (0.38%)', color: '#556b2f', defaultOn: false },
+            { tick: 'SMH', name: 'Semiconductors (0.35%)', color: '#00008b', defaultOn: false },
+            { tick: 'IGV', name: 'Software (0.39%)', color: '#4169e1', defaultOn: false },
+            { tick: 'FDN', name: 'Internet (0.52%)', color: '#dc143c', defaultOn: false },
+            { tick: 'KRE', name: 'Regional Banks (0.35%)', color: '#ff8c00', defaultOn: false },
+            { tick: 'XBI', name: 'Biotech (0.35%)', color: '#32cd32', defaultOn: false },
+            { tick: 'IHI', name: 'Medical Devices (0.38%)', color: '#00fa9a', defaultOn: false },
+            { tick: 'XRT', name: 'Retail (0.35%)', color: '#da70d6', defaultOn: false },
+            { tick: 'ITB', name: 'Homebuilders (0.38%)', color: '#8a2be2', defaultOn: false },
+            { tick: 'XME', name: 'Metals & Mining (0.35%)', color: '#4682b4', defaultOn: false },
+            { tick: 'XOP', name: 'Oil & Gas E&P (0.35%)', color: '#696969', defaultOn: false },
+            { tick: 'OIH', name: 'Oil Services (0.35%)', color: '#a9a9a9', defaultOn: false }
         ];
 
         let FINAL_DATA = {};
         let DATE_LABELS = [];
-        let VISIBLE_SECTORS = new Set(SECTOR_MAP.map(s => s.tick)); 
+        let VISIBLE_SECTORS = new Set(SECTOR_MAP.filter(s => s.defaultOn).map(s => s.tick)); 
         let IS_DARK_MODE = false; // Default: Light Mode
 
         // --- THEME TOGGLE LOGIC ---
@@ -221,7 +238,7 @@
                     const json = await res.json();
                     let result = json.chart.result[0];
                     rawData[ticker] = { prices: result.indicators.quote[0].close, times: result.timestamp };
-                    await delay(350); 
+                    await delay(250); // Slightly lowered delay to handle the larger payload faster
                 } catch (e) { console.error(e); }
             }
 
@@ -240,7 +257,7 @@
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.className = 'sector-cb';
-                checkbox.checked = true; 
+                checkbox.checked = item.defaultOn; 
                 checkbox.value = item.tick;
 
                 checkbox.addEventListener('change', (e) => {
