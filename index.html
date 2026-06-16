@@ -139,10 +139,10 @@
         <span id="date-display">Initializing...</span>
         <span id="sub-text">Connecting to market data feed...</span>
         
-        <input type="range" id="stepSlider" min="0" max="6" value="0" step="1" disabled>
+        <input type="range" id="stepSlider" min="0" max="6" value="3" step="1" disabled>
         <div class="time-labels" id="slider-labels">
-            <span>Current Snapshot</span>
-            <span>Show History Tails</span>
+            <span>Current Point Only</span>
+            <span>Full History</span>
         </div>
     </div>
 
@@ -157,7 +157,6 @@
 
         // SECTOR DATA
         const SECTOR_MAP = [
-            // --- MAIN SECTORS (Default ON) ---
             { tick: 'XLK', name: 'Technology (0.09%)', color: '#1f77b4', defaultOn: true },
             { tick: 'XLF', name: 'Financials (0.09%)', color: '#ff7f0e', defaultOn: true },
             { tick: 'XLV', name: 'Healthcare (0.09%)', color: '#2ca02c', defaultOn: true },
@@ -170,7 +169,6 @@
             { tick: 'XLRE', name: 'Real Estate (0.09%)', color: '#17becf', defaultOn: true },
             { tick: 'XLB', name: 'Materials (0.09%)', color: '#aec7e8', defaultOn: true },
             
-            // --- SUB-SECTORS (Default OFF to prevent clutter) ---
             { tick: 'IYT', name: 'Transportation (0.38%)', color: '#b87333', defaultOn: false },
             { tick: 'JETS', name: 'Airlines (0.60%)', color: '#00ced1', defaultOn: false },
             { tick: 'ITA', name: 'Aerospace & Def (0.38%)', color: '#556b2f', defaultOn: false },
@@ -289,7 +287,6 @@
         function processData(rawData, spy) {
             let lastIndex = spy.times.length - 1;
             let targetIndices = [];
-            // We want 7 data points (current + 6 weeks of history)
             for (let i = 0; i < 7; i++) {
                 let idx = lastIndex - (i * 5);
                 if (idx >= 0) targetIndices.unshift(idx);
@@ -337,7 +334,7 @@
             let maxTail = DATE_LABELS.length - 1;
             slider.min = 0;
             slider.max = maxTail;
-            slider.value = 0; // Default to 0 (No Tail, Current Only)
+            slider.value = 3; // Default to 3 weeks
             slider.disabled = false;
 
             sub.innerText = "Data loaded. Drag the slider to reveal historical trails.";
@@ -346,7 +343,7 @@
                 <span>Full History (${maxTail} Weeks)</span>
             `;
 
-            updateChart(0); // Start with only the newest data points
+            updateChart(3); // Start with 3 weeks of history
 
             slider.addEventListener('input', (e) => updateChart(parseInt(e.target.value)));
         }
@@ -359,14 +356,13 @@
             document.getElementById('date-display').innerHTML = `Latest Data: <span class="highlight">${dateStr}</span> <span style="font-size: 0.5em; color: var(--text-secondary); margin-left: 10px;">(${tailText})</span>`;
 
             let traces = [];
+            let directionalArrows = []; // Array to hold the dynamic arrowheads
 
             SECTOR_MAP.forEach(item => {
                 let ticker = item.tick;
                 if (!VISIBLE_SECTORS.has(ticker)) return;
                 if (!FINAL_DATA[ticker]) return;
                 
-                // If tailLength is 0, we only take the very last point.
-                // If tailLength is 6, we take all 7 points.
                 let startIndex = newestIndex - tailLength;
                 let visiblePoints = FINAL_DATA[ticker].slice(startIndex);
                 
@@ -391,12 +387,41 @@
                     textfont: { family: 'Arial', weight: 'bold', size: 15, color: color },
                     hoverinfo: 'name+text'
                 });
+
+                // Generate arrowheads pointing in the trend direction
+                if (visiblePoints.length > 1) {
+                    let lastPt = visiblePoints[visiblePoints.length - 1];
+                    let prevPt = visiblePoints[visiblePoints.length - 2];
+
+                    directionalArrows.push({
+                        x: lastPt.x,
+                        y: lastPt.y,
+                        ax: prevPt.x,
+                        ay: prevPt.y,
+                        xref: 'x',
+                        yref: 'y',
+                        axref: 'x',
+                        ayref: 'y',
+                        showarrow: true,
+                        arrowhead: 2, // Standard filled triangle
+                        arrowsize: 1.5,
+                        arrowwidth: 3,
+                        arrowcolor: color
+                    });
+                }
             });
 
             const cardBg = IS_DARK_MODE ? '#121212' : '#ffffff';
             const gridColor = IS_DARK_MODE ? '#333333' : '#e0e0e0';
             const textColor = IS_DARK_MODE ? '#a0a0a0' : '#666666';
             const crosshair = IS_DARK_MODE ? '#666666' : '#999999';
+
+            const baseAnnotations = [
+                { x: 10, y: 240, text: 'Improving', showarrow: false, font: { size: 16, color: '#4dabf7', weight: 'bold' }, xanchor: 'left' },
+                { x: 240, y: 240, text: 'Leading', showarrow: false, font: { size: 16, color: '#2ca02c', weight: 'bold' }, xanchor: 'right' },
+                { x: 10, y: 10, text: 'Lagging', showarrow: false, font: { size: 16, color: '#d62728', weight: 'bold' }, xanchor: 'left' },
+                { x: 240, y: 10, text: 'Weakening', showarrow: false, font: { size: 16, color: '#ff7f0e', weight: 'bold' }, xanchor: 'right' }
+            ];
 
             const layout = {
                 title: false,
@@ -414,13 +439,7 @@
                 },
                 margin: { l: 60, r: 40, b: 60, t: 30 },
                 hovermode: 'closest',
-                
-                annotations: [
-                    { x: 10, y: 240, text: 'Improving', showarrow: false, font: { size: 16, color: '#4dabf7', weight: 'bold' }, xanchor: 'left' },
-                    { x: 240, y: 240, text: 'Leading', showarrow: false, font: { size: 16, color: '#2ca02c', weight: 'bold' }, xanchor: 'right' },
-                    { x: 10, y: 10, text: 'Lagging', showarrow: false, font: { size: 16, color: '#d62728', weight: 'bold' }, xanchor: 'left' },
-                    { x: 240, y: 10, text: 'Weakening', showarrow: false, font: { size: 16, color: '#ff7f0e', weight: 'bold' }, xanchor: 'right' }
-                ],
+                annotations: baseAnnotations.concat(directionalArrows), // Merge arrows into chart
                 shapes: [
                     { type: 'line', x0: 100, y0: 0, x1: 100, y1: 250, line: { color: crosshair, width: 2 } },
                     { type: 'line', x0: 0, y0: 100, x1: 250, y1: 100, line: { color: crosshair, width: 2 } },
