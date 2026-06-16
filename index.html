@@ -16,6 +16,7 @@
             --accent-blue: #007bff;
             --grid-color: #e0e0e0;
             --crosshair-color: #666;
+            --sidebar-width: 320px;
         }
 
         [data-theme="dark"] {
@@ -31,18 +32,21 @@
 
         body {
             font-family: 'Segoe UI', Roboto, sans-serif;
-            text-align: center;
+            margin: 0;
+            padding: 20px;
             background-color: var(--bg-color);
             color: var(--text-primary);
-            padding: 20px;
             transition: background 0.3s, color 0.3s;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden; /* Prevent full page scroll */
         }
 
-        h1 { margin-bottom: 20px; font-weight: 300; text-transform: uppercase; letter-spacing: 1px; }
+        h1 { margin: 0; font-weight: 300; text-transform: uppercase; letter-spacing: 1px; }
 
         .header-row {
             display: flex; justify-content: space-between; align-items: center;
-            max-width: 1100px; margin: 0 auto 20px auto;
+            max-width: 1400px; margin: 0 auto 20px auto;
         }
         
         .theme-switch-wrapper { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 0.9em; }
@@ -59,50 +63,90 @@
         input:checked + .slider { background-color: var(--accent-blue); }
         input:checked + .slider:before { transform: translateX(24px); }
 
-        #controls, #chart-card {
+        /* --- MAIN LAYOUT GRID --- */
+        .main-layout {
+            display: grid;
+            grid-template-columns: var(--sidebar-width) 1fr;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            height: calc(100vh - 80px); /* Fill remaining space below header */
+        }
+
+        /* --- SIDEBAR CONTROLS --- */
+        .sidebar {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            max-width: 1100px;
-            margin: 0 auto 25px auto;
-            padding: 25px;
-            transition: background 0.3s, border 0.3s;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto; /* Independent scrolling */
         }
 
-        #chart-container { width: 100%; height: 800px; }
+        /* Customize Scrollbar for Sidebar */
+        .sidebar::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
 
-        #btn-row { margin-bottom: 20px; display: flex; justify-content: center; gap: 10px; }
+        /* BUTTONS */
+        #btn-row { margin-bottom: 15px; display: flex; justify-content: space-between; gap: 10px; }
         button {
-            padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
-            font-weight: 600; font-size: 0.9em; transition: 0.2s;
+            flex: 1; padding: 8px; border: none; border-radius: 4px; cursor: pointer;
+            font-weight: 600; font-size: 0.85em; transition: 0.2s;
         }
         button.select-btn { background: var(--accent-blue); color: white; }
         button.select-btn:hover { opacity: 0.9; }
         button.clear-btn { background: #e0e0e0; color: #333; }
         button.clear-btn:hover { background: #ccc; }
 
+        /* CHECKBOXES */
         #checkbox-container {
-            display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
-            margin-bottom: 25px; padding-bottom: 20px;
+            display: flex; flex-direction: column; gap: 8px;
+            margin-bottom: 20px; padding-bottom: 20px;
             border-bottom: 1px solid var(--border-color);
         }
         .sector-label {
             font-size: 0.85em; cursor: pointer;
             display: flex; align-items: center; gap: 8px;
-            padding: 8px 12px; border-radius: 4px;
-            background: rgba(128, 128, 128, 0.1); 
+            padding: 6px 10px; border-radius: 4px;
+            background: rgba(128, 128, 128, 0.05); 
             border: 1px solid transparent;
             color: var(--text-primary);
+            text-align: left;
         }
-        .sector-label:hover { background: rgba(128, 128, 128, 0.2); }
-        .ticker-span { font-weight: 700; }
+        .sector-label:hover { background: rgba(128, 128, 128, 0.15); }
+        .ticker-span { font-weight: 700; min-width: 45px; display: inline-block; }
 
-        input[type=range] { width: 100%; cursor: pointer; margin-top: 15px; accent-color: var(--accent-blue); }
-        #date-display { font-size: 1.6em; font-weight: 600; display: block; margin-bottom: 5px; color: var(--text-primary); }
-        #sub-text { color: var(--text-secondary); font-size: 0.9em; display: block; margin-bottom: 10px;}
+        /* SLIDER & TEXT */
+        .controls-footer { margin-top: auto; } /* Pushes slider to bottom if space allows */
+        input[type=range] { width: 100%; cursor: pointer; margin-top: 10px; accent-color: var(--accent-blue); }
+        #date-display { font-size: 1.1em; font-weight: 600; display: block; margin-bottom: 5px; color: var(--text-primary); text-align: left;}
+        #sub-text { color: var(--text-secondary); font-size: 0.8em; display: block; margin-bottom: 10px; text-align: left;}
         .highlight { color: var(--accent-blue); }
-        .time-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.8em; color: var(--text-secondary); }
+        .time-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.75em; color: var(--text-secondary); }
+
+        /* --- CHART AREA --- */
+        .content-area {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #chart-container { width: 100%; height: 100%; min-height: 600px; }
+
+        /* Responsive Breakpoint */
+        @media (max-width: 900px) {
+            body { overflow: auto; height: auto; }
+            .main-layout { grid-template-columns: 1fr; height: auto; }
+            .sidebar { max-height: none; overflow: visible; }
+            #checkbox-container { flex-direction: row; flex-wrap: wrap; }
+        }
     </style>
 </head>
 <body>
@@ -118,26 +162,32 @@
         </div>
     </div>
 
-    <div id="controls">
-        <div id="btn-row">
-            <button class="select-btn" onclick="toggleAll(true)">Select All</button>
-            <button class="clear-btn" onclick="toggleAll(false)">Clear All</button>
-        </div>
-
-        <div id="checkbox-container">Loading sectors...</div>
-
-        <span id="date-display">Initializing...</span>
-        <span id="sub-text">Connecting to market data feed...</span>
+    <div class="main-layout">
         
-        <input type="range" id="stepSlider" min="0" max="6" value="3" step="1" disabled>
-        <div class="time-labels" id="slider-labels">
-            <span>Current Point Only</span>
-            <span>Full History</span>
-        </div>
-    </div>
+        <div class="sidebar">
+            <div id="btn-row">
+                <button class="select-btn" onclick="toggleAll(true)">Select All</button>
+                <button class="clear-btn" onclick="toggleAll(false)">Clear All</button>
+            </div>
 
-    <div id="chart-card">
-        <div id="chart-container"></div>
+            <div id="checkbox-container">Loading sectors...</div>
+
+            <div class="controls-footer">
+                <span id="date-display">Initializing...</span>
+                <span id="sub-text">Connecting to market data feed...</span>
+                
+                <input type="range" id="stepSlider" min="0" max="6" value="3" step="1" disabled>
+                <div class="time-labels" id="slider-labels">
+                    <span>Current Point Only</span>
+                    <span>Full History</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div id="chart-container"></div>
+        </div>
+
     </div>
 
     <script>
@@ -254,7 +304,7 @@
                 tickSpan.innerText = item.tick;
                 label.appendChild(tickSpan);
 
-                label.appendChild(document.createTextNode(` (${item.name})`));
+                label.appendChild(document.createTextNode(` - ${item.name}`));
                 container.appendChild(label);
             });
         }
@@ -292,7 +342,6 @@
                 let secTimes = rawData[ticker].times;
                 let secPrices = rawData[ticker].prices;
                 
-                // Lookup map by timestamp to protect against missing trading days
                 let priceMap = {};
                 for(let j=0; j<secTimes.length; j++){
                     priceMap[secTimes[j]] = secPrices[j];
@@ -317,7 +366,6 @@
                     let old60Sec = priceMap[past60Time];
                     let old10Sec = priceMap[past10Time];
 
-                    // Fallback to index if timestamp doesn't exactly match
                     if(currentSec === undefined) currentSec = secPrices[idx];
                     if(old60Sec === undefined) old60Sec = secPrices[idx-60];
                     if(old10Sec === undefined) old10Sec = secPrices[idx-10];
@@ -355,8 +403,8 @@
 
             sub.innerText = "Data loaded. Drag the slider to reveal historical trails.";
             document.getElementById('slider-labels').innerHTML = `
-                <span>Current Point Only</span>
-                <span>Full History (${maxTail} Weeks)</span>
+                <span>Current</span>
+                <span>History (${maxTail}W)</span>
             `;
 
             updateChart(3); 
@@ -369,7 +417,7 @@
             let dateStr = DATE_LABELS[newestIndex] || "N/A";
             
             let tailText = tailLength === 0 ? "No Trail" : `${tailLength}-Week Trail`;
-            document.getElementById('date-display').innerHTML = `Latest Data: <span class="highlight">${dateStr}</span> <span style="font-size: 0.5em; color: var(--text-secondary); margin-left: 10px;">(${tailText})</span>`;
+            document.getElementById('date-display').innerHTML = `<span style="font-size: 0.7em;">Latest Data:</span> <span class="highlight">${dateStr}</span> <br><span style="font-size: 0.6em; color: var(--text-secondary);">${tailText}</span>`;
 
             let traces = [];
             let directionalArrows = []; 
@@ -420,8 +468,8 @@
                         ayref: 'y',
                         showarrow: true,
                         arrowhead: 2, 
-                        arrowsize: 1,
-                        arrowwidth: 2,
+                        arrowsize: 0.5,
+                        arrowwidth: 1.5,
                         arrowcolor: color
                     });
                 }
@@ -467,6 +515,9 @@
             };
 
             Plotly.react('chart-container', traces, layout);
+            
+            // Force Plotly to resize to the new grid container dimensions
+            window.dispatchEvent(new Event('resize'));
         }
 
         startApp();
