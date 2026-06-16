@@ -394,7 +394,8 @@
                     name: ticker,
                     line: { color: color, width: 3, shape: 'spline' },
                     marker: { 
-                        size: 9, color: color,
+                        size: xVals.map((_, i) => i === xVals.length - 1 ? 0 : 7), 
+                        color: color,
                         opacity: xVals.map((_, i) => i === xVals.length - 1 ? 1 : 0.6),
                         line: {color: IS_DARK_MODE ? '#121212' : '#fff', width: 1} 
                     },
@@ -419,8 +420,8 @@
                         ayref: 'y',
                         showarrow: true,
                         arrowhead: 2, 
-                        arrowsize: 0.5,
-                        arrowwidth: 1.5,
+                        arrowsize: 1,
+                        arrowwidth: 2,
                         arrowcolor: color
                     });
                 }
