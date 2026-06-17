@@ -454,45 +454,35 @@
 
                 traces.push({
                     x: xVals, y: yVals,
-                    mode: 'lines+markers+text',
+                    mode: 'lines+markers+text', // Standard mode
                     name: ticker,
                     line: { color: color, width: 3, shape: 'spline' },
                     marker: { 
-                        size: xVals.map((_, i) => i === xVals.length - 1 ? 0 : 7), 
+                        // Size array: 0 for all points EXCEPT the last one (size 12), and second-to-last (size 0)
+                        size: xVals.map((_, i) => i === xVals.length - 1 ? 12 : 6), 
                         color: color,
                         opacity: xVals.map((_, i) => i === xVals.length - 1 ? 1 : 0.6),
-                        line: {color: IS_DARK_MODE ? '#121212' : '#fff', width: 1} 
+                        line: {color: IS_DARK_MODE ? '#121212' : '#fff', width: 1},
+                        // THIS IS THE FIX: Tell the last marker to be an arrowhead!
+                        symbol: xVals.map((_, i) => i === xVals.length - 1 ? 'arrow-bar-up' : 'circle'),
+                        // Point the arrow in the direction of the trend
+                        angle: xVals.map((_, i) => {
+                            if (i === xVals.length - 1 && visiblePoints.length > 1) {
+                                let dx = xVals[i] - xVals[i-1];
+                                let dy = yVals[i] - yVals[i-1];
+                                // Calculate angle in degrees
+                                return -Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+                            }
+                            return 0;
+                        })
                     },
                     text: xVals.map((_, i) => i === xVals.length - 1 ? ticker : ''),
-                    textposition: 'top center',
+                    textposition: 'top right', // Keeping your preferred text position
                     textfont: { family: 'Arial', weight: 'bold', size: 15, color: color },
                     hoverinfo: 'name+text'
                 });
 
-               if (visiblePoints.length > 1) {
-                    let lastPt = visiblePoints[visiblePoints.length - 1];
-                    let prevPt = visiblePoints[visiblePoints.length - 2];
-
-                    directionalArrows.push({
-                        x: lastPt.x,
-                        y: lastPt.y,
-                        ax: prevPt.x,
-                        ay: prevPt.y,
-                        xref: 'x',
-                        yref: 'y',
-                        axref: 'x',
-                        ayref: 'y',
-                        showarrow: true,
-                        arrowhead: 2, 
-                        arrowsize: 1.2, // Clean, visible size
-                        arrowwidth: 2,
-                        arrowcolor: color,
-                        // This is the magic line: Make the straight tail transparent!
-                        standoff: 0,
-                        arrowside: "end",
-                        opacity: 1
-                    });
-                }
+             
             });
 
             const cardBg = IS_DARK_MODE ? '#121212' : '#ffffff';
