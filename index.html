@@ -47,7 +47,22 @@
         .header-row {
             display: flex; justify-content: space-between; align-items: center;
             max-width: 1400px; margin: 0 auto 20px auto;
+            gap: 20px; /* Add some space between items */
         }
+
+        /* New styles for the header controls */
+        .header-controls {
+            flex-grow: 1; /* Take up remaining space */
+            max-width: 400px; /* Don't let it get too wide */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .header-controls input[type=range] { margin-top: 5px; }
+        .header-controls #date-display { font-size: 1em; text-align: center; margin-bottom: 0;}
+        .header-controls #sub-text { text-align: center; margin-bottom: 0;}
+        .header-controls .time-labels { margin-top: 2px;}
         
         .theme-switch-wrapper { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 0.9em; }
         .theme-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
@@ -453,29 +468,32 @@
                     hoverinfo: 'name+text'
                 });
 
-                if (visiblePoints.length > 1) {
+               if (visiblePoints.length > 1) {
                     let lastPt = visiblePoints[visiblePoints.length - 1];
                     let prevPt = visiblePoints[visiblePoints.length - 2];
 
-                    // Calculate a tiny "micro-tail" so the straight line hides inside the arrowhead
+                    // Calculate a slightly longer "micro-tail" so Plotly can calculate the angle
                     let dx = lastPt.x - prevPt.x;
                     let dy = lastPt.y - prevPt.y;
-                    let tailX = lastPt.x - (dx * 0.02); 
-                    let tailY = lastPt.y - (dy * 0.02);
+                    
+                    // Use 0.05 instead of 0.02
+                    let tailX = lastPt.x - (dx * 0.05); 
+                    let tailY = lastPt.y - (dy * 0.05);
 
                     directionalArrows.push({
                         x: lastPt.x,
                         y: lastPt.y,
-                        ax: tailX,  // Point from the micro-tail
-                        ay: tailY,  // Point from the micro-tail
+                        ax: tailX,  
+                        ay: tailY,  
                         xref: 'x',
                         yref: 'y',
                         axref: 'x',
                         ayref: 'y',
                         showarrow: true,
                         arrowhead: 2, 
-                        arrowsize: 0.5,
-                        arrowwidth: 1.5,
+                        // Increase size slightly so it's visible but not huge
+                        arrowsize: 0.8,
+                        arrowwidth: 2,
                         arrowcolor: color
                     });
                 }
