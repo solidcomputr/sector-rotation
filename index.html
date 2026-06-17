@@ -168,6 +168,16 @@
 
     <div class="header-row">
         <h1>Sector Rotation</h1>
+        <div class="header-controls">
+            <span id="date-display">Initializing...</span>
+            <span id="sub-text">Connecting to market data feed...</span>
+            <input type="range" id="stepSlider" min="0" max="6" value="3" step="1" disabled>
+            <div class="time-labels" id="slider-labels">
+                <span>Current Point Only</span>
+                <span>Full History</span>
+            </div>
+        </div>
+        
         <div class="theme-switch-wrapper">
             <span>Dark Mode</span>
             <label class="theme-switch">
@@ -187,16 +197,7 @@
 
             <div id="checkbox-container">Loading sectors...</div>
 
-            <div class="controls-footer">
-                <span id="date-display">Initializing...</span>
-                <span id="sub-text">Connecting to market data feed...</span>
-                
-                <input type="range" id="stepSlider" min="0" max="6" value="3" step="1" disabled>
-                <div class="time-labels" id="slider-labels">
-                    <span>Current Point Only</span>
-                    <span>Full History</span>
-                </div>
-            </div>
+            
         </div>
 
         <div class="content-area">
