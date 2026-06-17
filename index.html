@@ -457,19 +457,25 @@
                     let lastPt = visiblePoints[visiblePoints.length - 1];
                     let prevPt = visiblePoints[visiblePoints.length - 2];
 
+                    // Calculate a tiny "micro-tail" so the straight line hides inside the arrowhead
+                    let dx = lastPt.x - prevPt.x;
+                    let dy = lastPt.y - prevPt.y;
+                    let tailX = lastPt.x - (dx * 0.02); 
+                    let tailY = lastPt.y - (dy * 0.02);
+
                     directionalArrows.push({
                         x: lastPt.x,
                         y: lastPt.y,
-                        ax: prevPt.x,
-                        ay: prevPt.y,
+                        ax: tailX,  // Point from the micro-tail
+                        ay: tailY,  // Point from the micro-tail
                         xref: 'x',
                         yref: 'y',
                         axref: 'x',
                         ayref: 'y',
                         showarrow: true,
                         arrowhead: 2, 
-                        arrowsize: 1,
-                        arrowwidth: 2,
+                        arrowsize: 0.5,
+                        arrowwidth: 1.5,
                         arrowcolor: color
                     });
                 }
