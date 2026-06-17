@@ -473,29 +473,24 @@
                     let lastPt = visiblePoints[visiblePoints.length - 1];
                     let prevPt = visiblePoints[visiblePoints.length - 2];
 
-                    // Calculate a slightly longer "micro-tail" so Plotly can calculate the angle
-                    let dx = lastPt.x - prevPt.x;
-                    let dy = lastPt.y - prevPt.y;
-                    
-                    // Use 0.05 instead of 0.02
-                    let tailX = lastPt.x - (dx * 0.05); 
-                    let tailY = lastPt.y - (dy * 0.05);
-
                     directionalArrows.push({
                         x: lastPt.x,
                         y: lastPt.y,
-                        ax: tailX,  
-                        ay: tailY,  
+                        ax: prevPt.x,
+                        ay: prevPt.y,
                         xref: 'x',
                         yref: 'y',
                         axref: 'x',
                         ayref: 'y',
                         showarrow: true,
                         arrowhead: 2, 
-                        // Increase size slightly so it's visible but not huge
-                        arrowsize: 1,
+                        arrowsize: 1.2, // Clean, visible size
                         arrowwidth: 2,
-                        arrowcolor: color
+                        arrowcolor: color,
+                        // This is the magic line: Make the straight tail transparent!
+                        standoff: 0,
+                        arrowside: "end",
+                        opacity: 1
                     });
                 }
             });
