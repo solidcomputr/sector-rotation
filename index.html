@@ -205,11 +205,12 @@
         </div>
 
     </div>
-
-    <script>
-        const PROXY = "https://api.allorigins.win/raw?url=";
+<script>
+        // PASTE YOUR PUBLISHED CSV URL HERE
+        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKiSJvMjdh123iTfKji9agJYaogbiDcwxTh51LEZDImpAanb3cFfeyBT4Cf-izrtWBLuzvHPGhCPYf/pub?gid=0&single=true&output=csv"; 
+        
         const delay = ms => new Promise(res => setTimeout(res, ms));
-        const CUTOFF_TIMESTAMP = new Date("2025-12-23").getTime() / 1000;
+        const CUTOFF_TIMESTAMP = new Date("2025-12-23").getTime();
 
         const SECTOR_MAP = [
             { tick: 'XLK', name: 'Technology (0.09%)', color: '#1f77b4', defaultOn: true },
@@ -257,37 +258,19 @@
 
         async function startApp() {
             setupCheckboxes();
-
             const status = document.getElementById('sub-text');
-            let rawData = {};
-            let spyData = null;
             
             try {
-                status.innerText = "Fetching Benchmark ($SPX)...";
-                const url = `https://query1.finance.yahoo.com/v8/finance/chart/^GSPC?interval=1d&range=6mo&nocache=${Date.now()}`;
-                const res = await fetch(PROXY + encodeURIComponent(url));
-                const json = await res.json();
-                let result = json.chart.result[0];
-                spyData = { prices: result.indicators.quote[0].close, times: result.timestamp };
-            } catch (e) { console.error("SPY Error", e); }
-
-            if (!spyData) return;
-
-            for (let i = 0; i < SECTOR_MAP.length; i++) {
-                let ticker = SECTOR_MAP[i].tick;
-                status.innerText = `Fetching ${ticker} (${i+1}/${SECTOR_MAP.length})...`;
-                try {
-                    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=6mo&nocache=${Date.now()}`;
-                    const res = await fetch(PROXY + encodeURIComponent(url));
-                    const json = await res.json();
-                    let result = json.chart.result[0];
-                    rawData[ticker] = { prices: result.indicators.quote[0].close, times: result.timestamp };
-                    await delay(150); 
-                } catch (e) { console.error(e); }
+                status.innerText = "Fetching data from Google Sheets...";
+                const res = await fetch(SHEET_CSV_URL);
+                const csvText = await res.text();
+                
+                status.innerText = "Processing Data...";
+                parseCSVData(csvText);
+            } catch (e) {
+                status.innerText = "Error loading data.";
+                console.error("Sheet Fetch Error", e);
             }
-
-            status.innerText = "Processing Relative Strength...";
-            processData(rawData, spyData);
         }
 
         function setupCheckboxes() {
@@ -338,6 +321,50 @@
             if (Object.keys(FINAL_DATA).length > 0) updateChart(parseInt(sliderVal));
         }
 
+        function parseCSVData(csvText) {
+            // Split into rows and remove empty ones
+            const rows = csvText.split('\n').map(row => row.trim()).filter(row => row.length > 0);
+            
+            // Assuming row 0 is headers, data starts at row 1
+            // Google Finance usually outputs Date in col 0, SPY close in col 1, then Sector Closes
+            // The order MUST match the exact order in your Google Sheets formula
+            
+            // Map columns to tickers based on your provided formula order
+            const sheetOrder = ["SPY", "XLK", "XLF", "XLV", "XLC", "XLY", "XLI", "XLP", "XLE", "XLU", "XLRE", "XLB", "IYT", "JETS", "ITA", "SMH", "IGV", "FDN", "KRE", "XBI", "IHI", "XRT", "ITB", "XME", "XOP", "OIH"];
+            
+            let rawData = {};
+            sheetOrder.forEach(tick => {
+                rawData[tick] = { prices: [], times: [] };
+            });
+
+            // Extract data
+            for (let i = 1; i < rows.length; i++) {
+                const cols = rows[i].split(',');
+                if(cols.length < 2) continue;
+
+                // Simple date parse from string, assuming it looks like "MM/DD/YYYY HH:MM:SS"
+                let dateStr = cols[0].replace(/"/g, ''); 
+                let timestamp = new Date(dateStr).getTime();
+                
+                if (isNaN(timestamp)) continue;
+
+                // SPY is col 1
+                rawData["SPY"].times.push(timestamp);
+                rawData["SPY"].prices.push(parseFloat(cols[1]));
+
+                // Remaining sectors start at col 2
+                for(let c=2; c<cols.length; c++) {
+                    let colTicker = sheetOrder[c-1]; // Offset logic based on your HSTACK output
+                    if(colTicker && rawData[colTicker]) {
+                        rawData[colTicker].times.push(timestamp);
+                        rawData[colTicker].prices.push(parseFloat(cols[c]));
+                    }
+                }
+            }
+
+            processData(rawData, rawData["SPY"]);
+        }
+
         function processData(rawData, spy) {
             let lastIndex = spy.times.length - 1;
             let targetIndices = [];
@@ -347,13 +374,13 @@
             }
 
             DATE_LABELS = targetIndices.map(idx => {
-                let d = new Date(spy.times[idx] * 1000);
+                let d = new Date(spy.times[idx]);
                 return d.toLocaleDateString("en-US", { day: 'numeric', month: 'short', year: 'numeric' });
             });
 
             SECTOR_MAP.forEach(item => {
                 let ticker = item.tick;
-                if (!rawData[ticker] || !rawData[ticker].prices) return;
+                if (!rawData[ticker] || rawData[ticker].prices.length === 0) return;
                 
                 let secTimes = rawData[ticker].times;
                 let secPrices = rawData[ticker].prices;
@@ -412,18 +439,20 @@
             const sub = document.getElementById('sub-text');
             
             let maxTail = DATE_LABELS.length - 1;
+            if(maxTail < 0) maxTail = 0;
+
             slider.min = 0;
             slider.max = maxTail;
-            slider.value = 3; 
+            slider.value = Math.min(3, maxTail); 
             slider.disabled = false;
 
-            sub.innerText = "Data loaded. Drag the slider to reveal historical trails.";
+            sub.innerText = "Data loaded successfully.";
             document.getElementById('slider-labels').innerHTML = `
                 <span>Current</span>
                 <span>History (${maxTail}W)</span>
             `;
 
-            updateChart(3); 
+            updateChart(slider.value); 
 
             slider.addEventListener('input', (e) => updateChart(parseInt(e.target.value)));
         }
@@ -436,7 +465,6 @@
             document.getElementById('date-display').innerHTML = `<span style="font-size: 0.7em;">Latest Data:</span> <span class="highlight">${dateStr}</span> <br><span style="font-size: 0.6em; color: var(--text-secondary);">${tailText}</span>`;
 
             let traces = [];
-            let directionalArrows = []; 
 
             SECTOR_MAP.forEach(item => {
                 let ticker = item.tick;
@@ -454,35 +482,29 @@
 
                 traces.push({
                     x: xVals, y: yVals,
-                    mode: 'lines+markers+text', // Standard mode
+                    mode: 'lines+markers+text',
                     name: ticker,
                     line: { color: color, width: 3, shape: 'spline' },
                     marker: { 
-                        // Size array: 0 for all points EXCEPT the last one (size 12), and second-to-last (size 0)
                         size: xVals.map((_, i) => i === xVals.length - 1 ? 12 : 6), 
                         color: color,
                         opacity: xVals.map((_, i) => i === xVals.length - 1 ? 1 : 0.6),
                         line: {color: IS_DARK_MODE ? '#121212' : '#fff', width: 1},
-                        // THIS IS THE FIX: Tell the last marker to be an arrowhead!
                         symbol: xVals.map((_, i) => i === xVals.length - 1 ? 'arrow-bar-up' : 'circle'),
-                        // Point the arrow in the direction of the trend
                         angle: xVals.map((_, i) => {
                             if (i === xVals.length - 1 && visiblePoints.length > 1) {
                                 let dx = xVals[i] - xVals[i-1];
                                 let dy = yVals[i] - yVals[i-1];
-                                // Calculate angle in degrees
                                 return -Math.atan2(dy, dx) * (180 / Math.PI) + 90;
                             }
                             return 0;
                         })
                     },
                     text: xVals.map((_, i) => i === xVals.length - 1 ? ticker : ''),
-                    textposition: 'top right', // Keeping your preferred text position
+                    textposition: 'top right', 
                     textfont: { family: 'Arial', weight: 'bold', size: 15, color: color },
                     hoverinfo: 'name+text'
                 });
-
-             
             });
 
             const cardBg = IS_DARK_MODE ? '#121212' : '#ffffff';
@@ -513,7 +535,7 @@
                 },
                 margin: { l: 60, r: 40, b: 60, t: 30 },
                 hovermode: 'closest',
-                annotations: baseAnnotations.concat(directionalArrows), 
+                annotations: baseAnnotations,
                 shapes: [
                     { type: 'line', x0: 100, y0: 0, x1: 100, y1: 250, line: { color: crosshair, width: 2 } },
                     { type: 'line', x0: 0, y0: 100, x1: 250, y1: 100, line: { color: crosshair, width: 2 } },
@@ -525,8 +547,6 @@
             };
 
             Plotly.react('chart-container', traces, layout);
-            
-            // Force Plotly to resize to the new grid container dimensions
             window.dispatchEvent(new Event('resize'));
         }
 
